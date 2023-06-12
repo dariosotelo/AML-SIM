@@ -1,0 +1,6 @@
+1. Algoritmo que homologue los datos para que esten en forma de (nodo, dirección).
+2. Algoritmo que identifique las transacciones fan-out.
+3. Algoritmo que identifique las transacciones fan-in.
+4. Algoritmo que pruebe la veracidad de los archivos.
+5. Algoritmo que haga una representación de la red visualmente.
+
