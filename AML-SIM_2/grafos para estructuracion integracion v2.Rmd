@@ -1,0 +1,459 @@
+---
+title: "METODOLOGÍA DE IDENTIFICACIÓN DE REDES DE ESTRUCTURACIÓN DE LD"
+subtitle: '-----WIP-----'
+author: "Enrique Cuervo Guzmán"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    theme: cosmo
+    code_folding: hide
+    df_print: paged
+    toc: true
+    toc_depth: 4
+    toc_float: 
+      collapsed: false
+bibliography: D:/Personal/Biblioteca/Bibliografias/biblio.bib
+---
+
+---
+  nocite:|
+    @rcoreteam2020, @xie2014, @xie2020
+---
+
+```{r}
+library(knitr)   # @xie2014
+
+opts_chunk$set(echo=FALSE, warning = FALSE, message = FALSE)
+
+```
+
+```{r}
+
+library(igraph)
+library(DT)      # xie2020
+library(numbers)
+
+```
+
+# PLANTEAMIENTO
+
+@suresh2016 plantean un esquema para la detección eficiente de cuentas, operaciones y montos involucrados en operaciones de estructuración de LD utilizando grafos (redes). Es relevante observar que, tratándose del diseño de criterios o escenarios de alertamiento para la identificación de operaciones sospechosas, lo más frecuente es encontrarse con metodologías enfocadas principalmente en las fases del LD conocidas como la *colocación* o *integración*, dado que son las etapas del LD en las que resulta un poco más inmediato identificar irregularidades. Sin embargo, con rara frecuencia encontramos criterios de alertamiento dirigidos a la fase de *estructuración* del LD, motivo por el cual el trabajo de @suresh2016 resulta relevante.
+
+@michel2020, por ejemplo, definen a la etapa de estructuración como "la realización de múltiples transacciones financieras sucesivas, con la intención de borrar el rastro de los fondos obtenidos ilícitamente". Es claro que la identificación de la estructuración tiende a ser compleja. Como @suresh2016 señalan, dado que la estructuración puede ser una relación "de uno a muchos", la dificultad se origina en trazar todo la cadena de transacciones.
+
+Para ello, @suresh2016 proponen aplicar un criterio basado en Teoría de Gráficas con el objetivo de poder detectar dependencias complejas entre transacciones. En términos generales, proponen aplicar un algoritmo de "ruta más larga" en una gráfica dirigida acíclica, para identificar la "ruta" seguida por un monto transferido; por otra parte, utilizando medidas de grado de entrada y grado de salida de cada nodo, se busca identificar nodos (esto es, cuentas) de tipo "agente" o "integrador".
+
+El algoritmo propuesto por @suresh2016 sigue los siguientes pasos:
+
+1. aplicar una función *hash*[^1] a los indicadores secuenciales asignados a las cuentas para generar un conjunto de tuplas asignadas a *cubetas*. La función hash propuesta es:
+    $$h(x,y) = (10*orden(x) + orden(y)) mod 7$$
+    donde $x$ y $y$ son los indicadores secuenciales asignados a dos cuentas, respectivamente.
+    Las cubetas asignadas son utilizadas para reducir el número de pares ordenados candidatos mediante el uso de dos umbrales: (i) umbral para la frecuencia mínima por cubeta y (ii) umbral para la frecuencia mínima observada por pareja ordenada.
+    
+2.  Identificar el conjunto de transacciones sospechosas desde una perspectiva de teoría de grafos:
+    - Asociar las cuentas secuencialmente y generar la gráfica correspondiente considerando las cuentas como nodos.
+    - Para cada vínculo entre transacciones, asignar pesos para reflejar la multiplicidad de ocurrencias y, por lo tanto, la fuerza del trayecto,
+    - Calcular el grado de entrada y grado de salida para cada nodo, para poder determinar al nodo agente y al nodo integrador.
+        - $InDegree = 0 \rightarrow$ Nodo agente 
+        - $OutDegree = 0 \rightarrow$ Nodo integrador 
+        
+Un problema del artículo es que no señala cómo identificar a las redes sospechosas. Es decir, establecer el criterio de inusualidad para la red (a lo mejor y sí lo plantean, por eso volver a leer).
+
+Finalmente, otro problema o posible mejora, es que lo basan en la frecuencia de las operaciones, pero se pude hacer o combinar con el monto.
+
+Otras consideraciones:
+
+  - Para que funcione no se deben considerar depósitos o retiros, sino solamente los recursos ya ingresados a la entidad, pues uno supone que el nodo integrador en algún momento retira todos los recursos.
+  - No se plantean los criterios para establecer los umbrales.
+  - Se pueden agregar otros criterios de inusualidad, como el grado de la red, o la importancia de algunos nodos dentro de la red.
+
+# EJEMPLO
+
+## SIMULACIÓN DE OPERACIONES
+
+Una entidad financiera que tiene $N_1$ cuentas. Cada una de esas cuentas realiza un número de operaciones $O$ durante el periodo de análisis. $O$, a su vez, está compuesto por $O_1$ operaciones con otras cuentas abiertas en la entidad y $O_2$ operaciones con cuentas fuera de la entidad (de las cuales se observa un número total $N_2$, pero con las cuales cada cliente solamente opera con una muestra de tamaño $N_3$). Cada operación tiene asignado un monto $M$ y un tipo de operación $T$, que determina la dirección de la operación desde la perspectiva de la cuenta (entrada o salida de recursos).
+
+$$N_1 \sim Poisson(\lambda_1)$$
+
+```{r}
+
+lambda.1 <- 1500
+
+N1 <- rpois(n = 1, lambda = lambda.1)
+
+print(N1)
+
+cuentas <- 1:N1
+
+```
+
+$$N_2 \sim Poisson(\lambda_2)$$
+
+```{r}
+
+lambda.2 <- 5000
+
+N2 <- rpois(n = 1, lambda = lambda.2)
+
+print(N2)
+
+contrapartes <- 1:N2
+
+```
+
+
+$$N_3 \sim Poisson(\lambda_4)$$
+
+```{r}
+
+lambda.4 <- 3
+
+N3 <- rpois(n = N1, lambda = lambda.4)
+
+```
+
+
+$$N_4 \sim Poisson(\lambda_5)$$
+
+```{r}
+
+lambda.5 <- 7
+
+N4 <- rpois(n = N1, lambda = lambda.5)
+
+```
+
+$$O \sim Poisson(\lambda_3)$$
+
+```{r}
+
+lambda.3 <- 52
+
+O <- rpois(n = N1, lambda = lambda.3)
+
+summary(O)
+
+sum(O)
+
+```
+
+$$O_i = r_iO_i + (1 - r_i)O_i = O_{i1} + O_{i2};r_i \sim U(0,1)$$
+
+```{r}
+
+tasa.externas <- runif(n = N1, min = 0, max = 1)
+
+summary(tasa.externas)
+
+O <- 
+  data.frame(
+    CUENTA = cuentas,
+    O = O, 
+    O1 = floor((1 - tasa.externas)*O), 
+    O2 = (O -floor((1 - tasa.externas)*O)))
+
+```
+
+```{r}
+
+# Genera la tabla de las transacciones.
+#
+transacciones <- 
+  data.frame(
+    CUENTA = NA, CONTRAPARTE = NA, TIPO.CONT = NA, TIPO.TR = NA, MONTO = NA)
+
+for(i in 1:nrow(O)){
+  
+  CUENTA <- rep(x = O$CUENTA[i], times = O$O[i])
+  
+  CONTRAPARTE.INTERNA <- rep(NA, times = O$O1[i])
+  CONTRAPARTE.EXTERNA <- rep(NA, times = O$O2[i])
+  
+  if (N3[i] > 0){
+    
+    CONTRAPARTE.INTERNA <- 
+      sample(
+        x = 
+          sample(cuentas[which(!(cuentas %in% O$CUENTA[i]))], size = N3[i])
+        , size = O$O1[i]
+        , replace = TRUE
+      )
+    
+    }
+    
+  if (N4[i] > 0){
+    
+    CONTRAPARTE.EXTERNA <- 
+      sample(
+        x = sample(contrapartes, size = N4[i])
+        , size = O$O2[i]
+        , replace = TRUE
+      )
+    
+    }
+  
+  CONTRAPARTE <- c(CONTRAPARTE.INTERNA, CONTRAPARTE.EXTERNA)
+  
+  TIPO.CONT <- 
+    c(rep(x = 'INTERNA', times = O$O1[i]), rep(x = 'EXTERNA', times = O$O2[i]))
+  
+  transacciones.temp <- 
+    data.frame(CUENTA, CONTRAPARTE, TIPO.CONT, TIPO.TR = NA, MONTO = NA)
+  
+  transacciones <- rbind(transacciones, transacciones.temp)
+  
+}
+
+transacciones$CONTRAPARTE[which(transacciones$TIPO.CONT == 'EXTERNA')] <-
+  paste0('E',transacciones$CONTRAPARTE)
+
+transacciones <- transacciones[-1, ]
+
+
+```
+
+$$T \sim Bernoulli(p)$$
+
+```{r}
+
+p <- 0.65
+
+probs <- runif(n = sum(O$O))
+
+TIPO.TR <- 0
+
+TIPO.TR[probs > p] <- -1
+TIPO.TR[probs <= p] <- 1
+
+table(TIPO.TR)
+
+transacciones$TIPO.TR <- TIPO.TR
+
+```
+
+$$M \sim Gamma(\alpha, \beta)$$
+
+```{r}
+
+MONTO <- rgamma(n = sum(O$O), shape = 15000, scale = 1)
+
+summary(MONTO)
+
+transacciones$MONTO <- MONTO
+
+```
+
+```{r}
+
+transacciones <- transacciones[which(transacciones$CONTRAPARTE != 'ENA'),]
+
+```
+
+# GRÁFICA
+
+La siguienta tabla muestra los datos agregados de un vértices seleccionado aleatoriamente.
+
+```{r, out.height='100%', out.width='100%'}
+
+transacciones.agregadas <- 
+  aggregate(
+    x = list(MONTO = transacciones$MONTO)
+    , by = 
+      list(
+        CUENTA = transacciones$CUENTA
+        , CONTRAPARTE = transacciones$CONTRAPARTE
+        )
+    , FUN = sum)
+
+transacciones.red <- 
+  graph_from_data_frame(d = transacciones.agregadas, directed = FALSE)
+
+
+# Subgráfica de un vértice aleatorio.
+#
+vertice <- sample(x = cuentas, size = 1)
+
+vertices <- 
+  c(
+    vertice
+    , unique(transacciones$CONTRAPARTE[
+      which(transacciones$CUENTA %in% vertice)])
+    , unique(
+      transacciones$CUENTA[which(transacciones$CONTRAPARTE %in% vertice)])
+    )
+
+vertices <- unique(vertices)
+
+datatable(
+  data = 
+    transacciones.agregadas[
+      which(
+        transacciones.agregadas$CUENTA %in% vertice |
+          transacciones.agregadas$CONTRAPARTE %in% vertice),], 
+  rownames = FALSE) %>%
+  formatCurrency(columns = 'MONTO')
+
+transacciones.subred <- 
+  induced_subgraph(graph = transacciones.red, vids = vertices)
+
+V(graph = transacciones.subred)$color <- 'yellow'
+
+V(graph = transacciones.subred)[
+  which(V(graph = transacciones.subred)$name %in% vertice)]$color <- 'red'
+
+V(graph = transacciones.subred)[
+  which(substr(V(graph = transacciones.subred)$name, 1, 1) == 'E')]$color <- 
+  'green'
+```
+
+Abajo se presenta la gráfica (no dirigida) de los datos del vértice seleccionado aleatoriamente. El nodo en rojo representa al vértice seleccionado, en amarillo se muestran sus contrapartes "internas" y en verde las "externas".
+
+```{r, out.height='100%', out.width='100%'}
+
+plot(transacciones.subred, vertex.label = NA, vertex.size = 5, edge.width = 0.5)
+
+```
+
+Ahora haremos crecer la red a un grupo mayor de vértices (nuevamente, seleccionados al azar, pero manteniendo al previamente seleccionado):
+
+```{r, out.height='100%', out.width='100%'}
+
+# Subgráfica de un vértice aleatorio.
+#
+vertices.2 <- sample(x = cuentas, size = 4)
+
+vertices <- 
+  c(
+    vertices,
+    vertices.2,
+    unique(transacciones$CONTRAPARTE[
+      which(transacciones$CUENTA %in% vertices.2)]))
+
+vertices <- unique(vertices)
+
+datatable(
+  data = 
+    transacciones.agregadas[
+      which(
+        transacciones.agregadas$CUENTA %in% vertice |
+          transacciones.agregadas$CONTRAPARTE %in% vertice),], 
+  rownames = FALSE) %>%
+  formatCurrency(columns = 'MONTO')
+
+transacciones.subred <- 
+  induced_subgraph(graph = transacciones.red, vids = vertices)
+
+V(graph = transacciones.subred)$color <- 'yellow'
+
+V(graph = transacciones.subred)[
+  which(
+    V(graph = transacciones.subred)$name %in% c(vertice, vertices.2))]$color <-
+  'red'
+
+V(graph = transacciones.subred)[
+  which(substr(V(graph = transacciones.subred)$name, 1, 1) == 'E')]$color <- 
+  'green'
+
+```
+
+```{r, out.height='100%', out.width='100%'}
+
+plot(transacciones.subred, vertex.label = NA, vertex.size = 5, edge.width = 0.5)
+
+```
+
+Hacemos ahora la gráfica dirigida:
+
+```{r}
+
+transacciones.agregadas.2 <- 
+  aggregate(
+    x = list(MONTO = transacciones$MONTO)
+    , by = 
+      list(
+        CUENTA = transacciones$CUENTA
+        , CONTRAPARTE = transacciones$CONTRAPARTE
+        , TIPO.TR = transacciones$TIPO.TR
+        )
+    , FUN = sum)
+
+temp <- 
+  transacciones.agregadas.2[
+    which(transacciones.agregadas.2$TIPO.TR == -1), c(2, 1, 3, 4)]
+
+colnames(temp) <- c('CUENTA', 'CONTRAPARTE', 'TIPO.TR', 'MONTO')
+
+transacciones.agregadas.3 <-
+  rbind(
+    transacciones.agregadas.2[which(transacciones.agregadas.2$TIPO.TR == 1),]
+    , temp
+    )
+
+transacciones.red.2 <- 
+  graph_from_data_frame(d = transacciones.agregadas.3[, -3], directed = TRUE)
+
+transacciones.subred.2 <- 
+  induced_subgraph(graph = transacciones.red.2, vids = vertices)
+
+V(graph = transacciones.subred.2)$color <- 'yellow'
+
+V(graph = transacciones.subred.2)[
+  which(
+    V(graph = transacciones.subred.2)$name %in% c(vertice, vertices.2))]$color <-
+  'red'
+
+V(graph = transacciones.subred.2)[
+  which(substr(V(graph = transacciones.subred.2)$name, 1, 1) == 'E')]$color <- 
+  'green'
+
+plot(
+  transacciones.subred.2
+  , vertex.label = NA
+  , vertex.size = 5
+  , edge.width = 0.5
+  , edge.arrow.size = 0.25)
+
+```
+
+
+# PASO 1: FUNCIÓN HASH Y TABLA DE CONTINGENCIA
+
+```{r}
+
+# Agrega el orden de la contraparte
+#
+contrapartes.orden <- 
+  data.frame(
+    contraparte = unique(transacciones$CONTRAPARTE)
+    , orden = 1:length(unique(transacciones$CONTRAPARTE))
+    )
+
+transacciones <- 
+  merge(
+    x = transacciones
+    , y = contrapartes.orden
+    , by.x = 'CONTRAPARTE'
+    , by.y = 'contraparte'
+    , all.x = TRUE
+    )
+
+# Crea la columna con el hash
+#
+transacciones$h <- mod((transacciones$CUENTA*100 + transacciones$orden), 11)
+
+table(transacciones$h)
+
+```
+
+
+
+# PENDIENTES
+
+- Descripción de las operaciones  módulo.
+- Agregar una anomalía en la red.
+- @grimaldi1989, cap. 14
+- Calcular el grado de entrada y grado de salida de los vértices.
+ 
+[^1]: Una función *hash* es una función $h(k)$ que toma a lo más M valores para toda $k \in K$, es decir, mapea k a un conjunto finito M (@knuth1998). La idea subyacente en el *hashing* consiste en obtener algunos elementos de la información contenida en la llave $k$ y utilizar esta información para reducir la dimensionalidad de un determinado problema (por ejemplo, de búsqueda).
+
+# REFERENCIAS

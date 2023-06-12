@@ -1,0 +1,96 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+title: "AnalisisDescriptivo"
+author: "Dario Sotelo"
+date: '2023-04-26'
+output: html_document
+
+El objetivo de este documento es hacer un análisis descriptivo de una base de datos que simula las transacciones de un banco.
+En las siguientes líneas se lee el archivo.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+data<-read.csv("Desktop/AML-SIM/bank_mixed/transactions.csv")
+```
+
+## Exploración de los datos
+Es importante conocer las características de los datos, es decir, las dimensiones de la base de datos, el número de transacciones, los nombres de las columnas y además en R existe una función predefinida que hace un resumen estadístico de las variables numéricas. Se simulan 885,744 transacciones de tres diferentes bancos.
+
+
+```{r datos, out.height='100%', out.width='100%'}
+summary(data)
+```
+
+Son ocho columnas y las estadísticas de cada una de ellas.
+tran_id, se refiere al id de la transacción.
+orig_acct, se refiere al id de la cuenta origen de la transacción.
+bene_act, es la cuenta que recibe la transacción.
+tx_type, se refiere al tipo de transacción.
+base_amt, es la cantidad que se transfiere en cada transacción.
+tran_timestamp, es la fecha cuando se realizó la transacción.
+is_sar, advierte si la transacción es de lavado de dinero o no (es un valor booleano).
+alert_id, es el id de alerta.
+
+
+
+## Análisis de la variable "tran_timestamp"
+El formato de las fechas ya viene en orden: "año-mes-día".
+
+```{r tran_timestamp, out.height='100%', out.width='100%'}
+data$tran_timestamp_2<-as.Date(data$tran_timestamp, format="%Y-%m-%d")
+hist(data$tran_timestamp_2, breaks = "months", xlab = "Fecha", main = "Distribución de transacciones por fecha")
+
+
+```
+
+Podemos inferir que la variable aleatoria de las transacciones por fecha se distribuye uniforme en el intervalo de las fechas entre 2016-12-31 y 2018-08-31.
+
+
+## Análisis de la variable "base_amt"
+El análisis de esta variable va a ser muy útil para poder tener una idea de cómo son simuladas las transacciones en este proyecto.
+
+```{r base_amt, out.height='100%', out.width='100%'}
+
+hist(data$base_amt, xlab = "Monto", main = "Distribución de las cantidades de los montos de las transacciones")
+
+````
+En este caso, podemos observar que no hay como tal una distribución que podríamos inferir que le pertenece a esta variable aleatoria. Se podría asimilar a una distribución exponencial, pero no hay forma de asegurar esto. Vemos que la mayoría de las distribuciones se encuentan pegadas a la columna de la izquierda y hay unos valores atípicos hacia la derecha.
+
+
+#Análisis de la variable "is_ar"
+Este análisis muestra las magnitud de cuentas que son de lavado de dinero, contra las que no son.
+
+```{r is_sar, out.height='100%', out.width='100%'}
+
+library(ggplot2)
+ggplot(data=data)+aes(x=is_sar)+geom_bar()
+#knitr::knit_print(obj)
+
+````
+
+
+#Implementación de los algoritmos
+
+
+```{r }
+
+
+rmarkdown::render("Desktop/AML-SIM/analisisDescriptivo.Rmd", "html_document")
+
+````
+
+
+
+
+
+
+
+
+
+
+
+
