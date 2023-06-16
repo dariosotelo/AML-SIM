@@ -147,7 +147,7 @@ print("Número de aristas:", num_aristas)
 
 
 
-#%%
+#%% Esta fue la que funcionó
 
 nx.draw_networkx_nodes(G, pos=nx.spring_layout(G), with_labels=True, node_color='lightblue', node_size=500)
 
@@ -158,7 +158,13 @@ nx.draw_networkx_labels(G, pos=nx.spring_layout(G))
 plt.axis('off')
 plt.show()
 
+
+#%% Siguiente paso, es hacer los algoritmos que detecten las transferencias fan-in fan-out
+
+
+
 #%%
+
 
 pos = nx.spring_layout(G)
 
